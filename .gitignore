@@ -1,0 +1,32 @@
+# Python virtual environments
+venv/
+env/
+.venv/
+.env
+
+# Python compiled files
+*.pyc
+__pycache__/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Java/Maven
+target/
+.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.properties
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
