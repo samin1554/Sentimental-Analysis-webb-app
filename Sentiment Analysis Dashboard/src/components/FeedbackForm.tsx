@@ -7,7 +7,7 @@ import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Alert } from "./ui/alert";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import { analyzeSentiment } from "../lib/mockData";
+import { submitFeedback, processFeedback } from "../lib/api";
 
 export function FeedbackForm() {
   const [formData, setFormData] = useState({
@@ -53,26 +53,37 @@ export function FeedbackForm() {
     setIsSubmitting(true);
     setSubmitStatus('idle');
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // Analyze sentiment
-    const analysis = analyzeSentiment(formData.message);
-    console.log('Feedback submitted:', { ...formData, ...analysis });
-
-    setIsSubmitting(false);
-    setSubmitStatus('success');
-
-    // Reset form
-    setTimeout(() => {
-      setFormData({
-        userName: '',
-        email: '',
-        message: '',
-        source: 'Web',
+    try {
+      // Submit feedback to backend
+      const submittedFeedback = await submitFeedback({
+        userName: formData.userName,
+        email: formData.email,
+        message: formData.message,
+        source: formData.source.toLowerCase(),
       });
-      setSubmitStatus('idle');
-    }, 3000);
+
+      // Process feedback through AI service
+      const processedFeedback = await processFeedback(submittedFeedback.id);
+      console.log('Feedback processed:', processedFeedback);
+
+      setIsSubmitting(false);
+      setSubmitStatus('success');
+
+      // Reset form
+      setTimeout(() => {
+        setFormData({
+          userName: '',
+          email: '',
+          message: '',
+          source: 'Web',
+        });
+        setSubmitStatus('idle');
+      }, 3000);
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      setIsSubmitting(false);
+      setSubmitStatus('error');
+    }
   };
 
   return (

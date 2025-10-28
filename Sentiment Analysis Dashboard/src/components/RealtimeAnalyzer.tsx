@@ -4,8 +4,8 @@ import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Progress } from "./ui/progress";
-import { Sparkles, X } from "lucide-react";
-import { analyzeSentiment } from "../lib/mockData";
+import { Sparkles, X, Loader2 } from "lucide-react";
+import { analyzeSentiment } from "../lib/api";
 
 export function RealtimeAnalyzer() {
   const [text, setText] = useState('');
@@ -14,16 +14,38 @@ export function RealtimeAnalyzer() {
     score: number;
     confidence: number;
   } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     if (text.trim().length === 0) return;
-    const result = analyzeSentiment(text);
-    setAnalysis(result);
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const result = await analyzeSentiment(text);
+      
+      // Transform backend response to frontend format
+      const transformedResult = {
+        sentiment: result.sentiment_label.toLowerCase() as 'positive' | 'negative' | 'neutral',
+        score: result.sentiment_score,
+        confidence: result.sentiment_score, // Using score as confidence for now
+      };
+      
+      setAnalysis(transformedResult);
+    } catch (err) {
+      console.error('Error analyzing sentiment:', err);
+      setError('Failed to analyze sentiment. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleClear = () => {
     setText('');
     setAnalysis(null);
+    setError(null);
   };
 
   const getSentimentColor = (sentiment: string) => {
@@ -79,14 +101,29 @@ export function RealtimeAnalyzer() {
 
           <Button
             onClick={handleAnalyze}
-            disabled={text.trim().length === 0}
+            disabled={text.trim().length === 0 || loading}
             className="w-full"
             style={{ backgroundColor: '#3B82F6' }}
           >
-            <Sparkles className="w-4 h-4 mr-2" />
-            Analyze Sentiment
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 mr-2" />
+                Analyze Sentiment
+              </>
+            )}
           </Button>
         </div>
+
+        {error && (
+          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600">{error}</p>
+          </div>
+        )}
       </Card>
 
       {analysis && (

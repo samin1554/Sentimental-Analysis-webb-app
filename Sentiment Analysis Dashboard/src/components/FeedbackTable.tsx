@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
@@ -13,8 +13,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "./ui/pagination";
-import { Search, Download, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
-import { mockFeedback, Feedback } from "../lib/mockData";
+import { Search, Download, ChevronUp, ChevronDown, ChevronsUpDown, Loader2, RefreshCw } from "lucide-react";
+import { getAnalyzedFeedback, transformToFrontendFormat, FrontendFeedback } from "../lib/api";
 import { format } from "date-fns";
 
 type SortField = 'userName' | 'email' | 'sentiment' | 'score' | 'source' | 'timestamp';
@@ -26,8 +26,31 @@ export function FeedbackTable() {
   const [sortField, setSortField] = useState<SortField>('timestamp');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [feedback, setFeedback] = useState<FrontendFeedback[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   const itemsPerPage = 10;
+
+  const fetchFeedback = async () => {
+    try {
+      setLoading(true);
+      const analyzedFeedback = await getAnalyzedFeedback();
+      const transformedFeedback = transformToFrontendFormat(analyzedFeedback);
+      setFeedback(transformedFeedback);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching feedback:', err);
+      setError('Failed to load feedback data');
+      setFeedback([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFeedback();
+  }, []);
 
   const getSentimentBadgeColor = (sentiment: string) => {
     switch (sentiment) {
@@ -59,13 +82,13 @@ export function FeedbackTable() {
   };
 
   const filteredAndSortedFeedback = useMemo(() => {
-    let filtered = mockFeedback.filter(feedback => {
+    let filtered = feedback.filter(feedbackItem => {
       const searchLower = searchQuery.toLowerCase();
       return (
-        feedback.userName.toLowerCase().includes(searchLower) ||
-        feedback.email.toLowerCase().includes(searchLower) ||
-        feedback.message.toLowerCase().includes(searchLower) ||
-        feedback.source.toLowerCase().includes(searchLower)
+        feedbackItem.userName.toLowerCase().includes(searchLower) ||
+        feedbackItem.email.toLowerCase().includes(searchLower) ||
+        feedbackItem.message.toLowerCase().includes(searchLower) ||
+        feedbackItem.source.toLowerCase().includes(searchLower)
       );
     });
 
@@ -84,7 +107,7 @@ export function FeedbackTable() {
     });
 
     return filtered;
-  }, [searchQuery, sortField, sortOrder]);
+  }, [feedback, searchQuery, sortField, sortOrder]);
 
   const totalPages = Math.ceil(filteredAndSortedFeedback.length / itemsPerPage);
   const paginatedFeedback = filteredAndSortedFeedback.slice(
@@ -128,6 +151,24 @@ export function FeedbackTable() {
     window.URL.revokeObjectURL(url);
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin" />
+        <span className="ml-2">Loading feedback data...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-600 mb-4">{error}</p>
+        <Button onClick={() => window.location.reload()}>Retry</Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <Card className="p-6">
@@ -144,10 +185,21 @@ export function FeedbackTable() {
               className="pl-10"
             />
           </div>
-          <Button onClick={exportToCSV} variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            Export CSV
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={fetchFeedback}
+              variant="outline"
+              size="sm"
+              disabled={loading}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button onClick={exportToCSV} variant="outline">
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">

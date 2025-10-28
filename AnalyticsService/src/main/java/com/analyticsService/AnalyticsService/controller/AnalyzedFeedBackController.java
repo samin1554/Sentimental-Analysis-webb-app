@@ -11,7 +11,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/analytics")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 public class AnalyzedFeedBackController {
 
     private final AnalyzedFeedBackService service;

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { SummaryCards } from "./SummaryCards";
 import { SentimentPieChart } from "./SentimentPieChart";
 import { SentimentTrendChart } from "./SentimentTrendChart";
@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Button } from "./ui/button";
 import { Calendar } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { CalendarIcon } from "lucide-react";
-import { mockFeedback, calculateAnalytics, generateTrendData, Feedback } from "../lib/mockData";
+import { CalendarIcon, Loader2, RefreshCw } from "lucide-react";
+import { getAnalyzedFeedback, transformToFrontendFormat, calculateAnalytics, FrontendFeedback } from "../lib/api";
+import { generateTrendData } from "../lib/mockData";
 import { format } from "date-fns";
 
 export function AnalyticsDashboard() {
@@ -19,30 +20,53 @@ export function AnalyticsDashboard() {
     from: undefined,
     to: undefined,
   });
+  const [feedback, setFeedback] = useState<FrontendFeedback[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const trendData = generateTrendData();
 
+  const fetchFeedback = async () => {
+    try {
+      setLoading(true);
+      const analyzedFeedback = await getAnalyzedFeedback();
+      const transformedFeedback = transformToFrontendFormat(analyzedFeedback);
+      setFeedback(transformedFeedback);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching feedback:', err);
+      setError('Failed to load feedback data');
+      setFeedback([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFeedback();
+  }, []);
+
   const filteredFeedback = useMemo(() => {
-    return mockFeedback.filter(feedback => {
-      if (sentimentFilter !== 'all' && feedback.sentiment !== sentimentFilter) {
+    return feedback.filter(feedbackItem => {
+      if (sentimentFilter !== 'all' && feedbackItem.sentiment !== sentimentFilter) {
         return false;
       }
-      if (sourceFilter !== 'all' && feedback.source !== sourceFilter) {
+      if (sourceFilter !== 'all' && feedbackItem.source !== sourceFilter) {
         return false;
       }
-      if (dateRange.from && feedback.timestamp < dateRange.from) {
+      if (dateRange.from && feedbackItem.timestamp < dateRange.from) {
         return false;
       }
       if (dateRange.to) {
         const endOfDay = new Date(dateRange.to);
         endOfDay.setHours(23, 59, 59, 999);
-        if (feedback.timestamp > endOfDay) {
+        if (feedbackItem.timestamp > endOfDay) {
           return false;
         }
       }
       return true;
     });
-  }, [sentimentFilter, sourceFilter, dateRange]);
+  }, [feedback, sentimentFilter, sourceFilter, dateRange]);
 
   const analytics = calculateAnalytics(filteredFeedback);
 
@@ -57,10 +81,39 @@ export function AnalyticsDashboard() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin" />
+        <span className="ml-2">Loading analytics data...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-600 mb-4">{error}</p>
+        <Button onClick={() => window.location.reload()}>Retry</Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
-        <h2>Sentiment Analytics Dashboard</h2>
+        <div className="flex items-center justify-between">
+          <h2>Sentiment Analytics Dashboard</h2>
+          <Button
+            onClick={fetchFeedback}
+            variant="outline"
+            size="sm"
+            disabled={loading}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
         
         <div className="flex flex-wrap gap-4">
           <div className="flex-1 min-w-[200px]">
@@ -148,7 +201,10 @@ export function AnalyticsDashboard() {
       <Card className="p-6">
         <h3 className="mb-4">Recent Feedback</h3>
         <div className="space-y-4">
-          {filteredFeedback.slice(0, 5).map((feedback) => (
+          {filteredFeedback
+            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+            .slice(0, 5)
+            .map((feedback) => (
             <div key={feedback.id} className="flex items-start gap-4 p-4 border rounded-lg">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">

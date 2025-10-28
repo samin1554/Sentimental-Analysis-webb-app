@@ -1,9 +1,11 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from transformers import pipeline
 import requests
 from datetime import datetime
 
 app = Flask(__name__)
+CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
 
 # Load Hugging Face sentiment analysis model
 sentiment_model = pipeline("sentiment-analysis")  # Default: distilbert-base-uncased-finetuned-sst-2-english
